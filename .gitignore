@@ -1,0 +1,44 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+*.whl
+
+# Build artefacts
+build/
+dist/
+*.spec
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+venv.bak/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.sublime-merge
+*.sublime-workspace
+.vscode/
+.idea/
+*.bak
+*.orig
+*.tmp
+*.log
+
+# Windows
+# (keep logs only if you explicitly need them in the repo; by default, ignore user logs)
+logs/
+
+# Local demo artifacts (generated, not part of the stable engine)
+demo_portfolio/
+demo_scripts/
+
+# Dependency snapshot (if you choose to keep it local only)
+build-frozen.txt
