@@ -7,9 +7,12 @@ __pycache__/
 *.whl
 
 # Build artefacts
+# excel_cleaner.spec SÍ se versiona: fuente única del build PyInstaller
+# (skill pyinstaller-packaging-workflow) y consumido por tests/test_branding.py.
 build/
 dist/
 *.spec
+!excel_cleaner.spec
 
 # Virtual environments
 .venv/
@@ -36,9 +39,11 @@ Thumbs.db
 # (keep logs only if you explicitly need them in the repo; by default, ignore user logs)
 logs/
 
+# Freebuff client local state
+.freebuff/
+
 # Local demo artifacts (generated, not part of the stable engine)
 demo_portfolio/
-demo_scripts/
 
 # Dependency snapshot (if you choose to keep it local only)
 build-frozen.txt
