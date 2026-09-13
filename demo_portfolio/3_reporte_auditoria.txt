@@ -1,0 +1,163 @@
+======================================================================
+  REPORTE DE AUDITORIA - EXCEL CLEANER
+======================================================================
+
+Fecha/Hora UTC: 2026-09-11T03:23:15.056347+00:00
+Version del Cleaner: 1.1.0
+
+----------------------------------------------------------------------
+  ARCHIVOS
+----------------------------------------------------------------------
+Archivo Original: F:\vacio_temp\demo_portfolio\1_original_sucio.xlsx
+Archivo Exportado: F:\vacio_temp\demo_portfolio\2_resultado_limpio.xlsx
+
+----------------------------------------------------------------------
+  METRICAS GLOBALES DE LIMPIEZA
+----------------------------------------------------------------------
+Filas antes: 8
+Filas despues: 7
+Filas eliminadas: 1
+Columnas antes: 6
+Columnas despues: 6
+
+----------------------------------------------------------------------
+  VALIDACION (ZERO-TRUST)
+----------------------------------------------------------------------
+Estado: VALIDO - La exportacion cumple con todas las reglas de integridad.
+
+----------------------------------------------------------------------
+  ACCIONES EJECUTADAS
+----------------------------------------------------------------------
+1. [eliminar_filas_vacias] Columna: GLOBAL
+   Descripcion: 
+   Parametros: {}
+   Fuente: analyzer
+   Aprobada: True
+
+2. [trim_espacios] Columna: Nombre Completo
+   Descripcion: 
+   Parametros: {}
+   Fuente: analyzer
+   Aprobada: True
+
+3. [trim_espacios] Columna: Email
+   Descripcion: 
+   Parametros: {}
+   Fuente: analyzer
+   Aprobada: True
+
+4. [trim_espacios] Columna: Ciudad
+   Descripcion: 
+   Parametros: {}
+   Fuente: analyzer
+   Aprobada: True
+
+5. [convertir_basura_a_nulo] Columna: Estado
+   Descripcion: 
+   Parametros: {}
+   Fuente: analyzer
+   Aprobada: True
+
+6. [normalizar_numerico] Columna: Monto
+   Descripcion: 
+   Parametros: {'locale': 'auto'}
+   Fuente: analyzer
+   Aprobada: True
+
+7. [normalizar_fechas] Columna: Fecha Contrato
+   Descripcion: 
+   Parametros: {'dayfirst': True}
+   Fuente: analyzer
+   Aprobada: True
+
+8. [eliminar_duplicados_por_columna] Columna: Email
+   Descripcion: 
+   Parametros: {'subset_columns': ['Email'], 'keep': 'first'}
+   Fuente: analyzer
+   Aprobada: True
+
+----------------------------------------------------------------------
+  TRANSFORMACIONES POR COLUMNA
+----------------------------------------------------------------------
+Columna: GLOBAL
+  Accion: eliminar_filas_vacias
+  Tipo entrada: df_(8, 6)
+  Tipo salida: df_(7, 6)
+  Nulos antes: 0
+  Nulos despues: 6
+  Valores cambiados: 1
+  Resumen: Filas: 8 -> 7 (eliminadas: 1)
+
+Columna: Nombre Completo
+  Accion: trim_espacios
+  Tipo entrada: str
+  Tipo salida: str
+  Nulos antes: 0
+  Nulos despues: 0
+  Valores cambiados: 3
+  Resumen: cambios: 3
+
+Columna: Email
+  Accion: trim_espacios
+  Tipo entrada: str
+  Tipo salida: str
+  Nulos antes: 0
+  Nulos despues: 0
+  Valores cambiados: 3
+  Resumen: cambios: 3
+
+Columna: Ciudad
+  Accion: trim_espacios
+  Tipo entrada: str
+  Tipo salida: str
+  Nulos antes: 0
+  Nulos despues: 0
+  Valores cambiados: 3
+  Resumen: cambios: 3
+
+Columna: Estado
+  Accion: convertir_basura_a_nulo
+  Tipo entrada: str
+  Tipo salida: str
+  Nulos antes: 0
+  Nulos despues: 5
+  Valores cambiados: 5
+  Resumen: Basura -> nulo (patrones estándar)
+
+Columna: Monto
+  Accion: normalizar_numerico
+  Tipo entrada: str
+  Tipo salida: float64
+  Nulos antes: 0
+  Nulos despues: 0
+  Valores cambiados: 7
+  Resumen: cambios: 7
+
+Columna: Fecha Contrato
+  Accion: normalizar_fechas
+  Tipo entrada: str
+  Tipo salida: str
+  Nulos antes: 0
+  Nulos despues: 1
+  Valores cambiados: 6
+  Resumen: nulos: +1; cambios: 6
+
+Columna: GLOBAL
+  Accion: eliminar_duplicados_por_columna
+  Tipo entrada: df_(8, 6)
+  Tipo salida: df_(7, 6)
+  Nulos antes: 0
+  Nulos despues: 6
+  Valores cambiados: 1
+  Resumen: Deduplicación por criterio ['Email'] (keep='first')
+
+----------------------------------------------------------------------
+  ADVERTENCIAS DE LIMPIEZA
+----------------------------------------------------------------------
+  - convertir_basura_a_nulo: 6 valor(es) de basura en columna 'Estado' fueron convertidos a nulo (patrones aprobados).
+  - normalizar_fechas: 1 valor(es) en columna 'Fecha Contrato' no se pudieron interpretar como fecha y se convertirán en nulo.
+
+======================================================================
+  FIN DEL REPORTE DE AUDITORIA
+======================================================================
+

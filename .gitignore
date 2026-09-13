@@ -1,49 +1,57 @@
-# Python bytecode
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-*.egg
-*.whl
-
-# Build artefacts
-# excel_cleaner.spec SÍ se versiona: fuente única del build PyInstaller
-# (skill pyinstaller-packaging-workflow) y consumido por tests/test_branding.py.
-build/
-dist/
-*.spec
-!excel_cleaner.spec
-
-# Virtual environments
+# --- Entornos virtuales ---
 .venv/
 venv/
 env/
-.env/
-venv.bak/
+ENV/
+VENV/
 
-# OS/editor junk
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*.sublime-merge
-*.sublime-workspace
+# --- Cache de Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Herramientas de testing ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# --- Formatos de datos de prueba/salida (mantener solo ejemplos anonymizados pequeños) ---
+*.xlsx
+*.xls
+*.csv
+*.ods
+
+# --- Logs y variables de entorno ---
+*.log
+.env
+.env.*
+!.env.example
+*.bak
+*.tmp
+
+# --- IDE ---
 .vscode/
 .idea/
-*.bak
-*.orig
-*.tmp
-*.log
+*.swp
+*.swo
+*~
 
-# Windows
-# (keep logs only if you explicitly need them in the repo; by default, ignore user logs)
-logs/
+# --- Build / Distribución ---
+build/
+dist/
+*.spec
+*.exe
+*.whl
+*.egg
 
-# Freebuff client local state
-.freebuff/
-
-# Local demo artifacts (generated, not part of the stable engine)
-demo_portfolio/
-
-# Dependency snapshot (if you choose to keep it local only)
-build-frozen.txt
+# --- Sistema ---
+.DS_Store
+Thumbs.db
+.freeze_support

@@ -550,6 +550,109 @@ def main() -> int:
 
     print("\nTODOS LOS TESTS DE AUDITORIA PASARON.")
 
+    # ============================================================
+    # HTML audit report (Standard/Premium certificate — Fase 9.2)
+    # ============================================================
+    print("\n--- Tests de Reporte HTML (certificado profesional) ---")
+
+    # Usar un directorio temporal independiente para los tests HTML,
+    # evitando cualquier efecto colateral de los tests previos.
+    import tempfile as _tmp
+    html_dir = _tmp.mkdtemp(prefix="html_audit_")
+    html_path = Path(html_dir)
+    _check(html_path.exists(), "HTML: dir temporal independiente existe")
+
+    df_html = pd.DataFrame({"Cliente": ["  Ana ", "Luis"], "Email": [" ANA@x.com ", "luis@x.com"]})
+    df_html_clean = pd.DataFrame({"Cliente": ["Ana", "Luis"], "Email": ["ANA@x.com", "luis@x.com"]})
+    actions_html = (
+        CleaningAction("trim_espacios", "Cliente", "", approved=True),
+        CleaningAction("trim_espacios", "Email", "", approved=True),
+    )
+    res_html = CleaningResult(
+        actions_applied=actions_html, rows_before=2, rows_after=2,
+        columns_before=2, columns_after=2, warnings=())
+    val_html = ValidationResult(valid=True, errors=(), warnings=())
+
+    # HTML en español
+    rep_es = generate_audit_report(str(html_path / "orig.xlsx"), str(html_path / "clean.xlsx"),
+                                   res_html, val_html, df_html, df_html_clean, language="es")
+    html_es_raw = export_audit_report(rep_es, str(html_path), format="html")
+    html_es_path = Path(html_es_raw)
+    _check(html_es_path.exists() and html_es_path.suffix == ".html", "HTML se genera con extensión .html")
+    html_es_txt = html_es_path.read_text(encoding="utf-8")
+    _check(html_es_txt.startswith("<!DOCTYPE html>"), "HTML válido (DOCTYPE)")
+    _check("Reporte de Auditoría" in html_es_txt, "HTML en español contiene título español")
+    _check("Certificado de Limpieza de Datos" in html_es_txt, "HTML contiene subtítulo certificado")
+    _check("Filas antes" in html_es_txt, "HTML contiene KPI 'Filas antes'")
+    _check("VÁLIDA" in html_es_txt, "HTML contiene badge VÁLIDA")
+    _check("trim_espacios" in html_es_txt, "HTML lista las acciones ejecutadas")
+    _check("Excel Cleaner" in html_es_txt, "HTML contiene marca")
+
+    # HTML en inglés
+    rep_en = generate_audit_report(str(html_path / "orig.xlsx"), str(html_path / "clean.xlsx"),
+                                   res_html, val_html, df_html, df_html_clean, language="en")
+    html_en_raw = export_audit_report(rep_en, str(html_path), format="html")
+    html_en_path = Path(html_en_raw)
+    html_en_txt = html_en_path.read_text(encoding="utf-8")
+    _check("Audit Report" in html_en_txt, "HTML en inglés contiene título en inglés")
+    _check("Rows before" in html_en_txt, "HTML en inglés contiene KPI en inglés")
+    _check("VALID" in html_en_txt, "HTML en inglés contiene badge VALID")
+    _check("lang=\"en\"" in html_en_txt, "HTML en inglés tiene lang=en")
+    _check("español" not in html_en_txt.lower(),
+           "HTML en inglés NO contiene texto en español (sin fugas de localización)")
+
+    # Validación NO VÁLIDA: el HTML debe reflejarlo con badge rojo y texto NOT VALID
+    val_invalid = ValidationResult(valid=False, errors=("Mutation detected outside approved actions",), warnings=())
+    rep_invalid = generate_audit_report(str(html_path / "orig.xlsx"), str(html_path / "clean.xlsx"),
+                                        res_html, val_invalid, df_html, df_html_clean, language="en")
+    html_inv_raw = export_audit_report(rep_invalid, str(html_path), format="html")
+    html_inv_txt = Path(html_inv_raw).read_text(encoding="utf-8")
+    _check("NOT VALID" in html_inv_txt, "HTML refleja validación NO VÁLIDA")
+    _check("Mutation detected outside approved actions" in html_inv_txt, "HTML incluye el error de validación")
+    _check(html_inv_txt.count("badge") >= 1, "HTML contiene al menos un badge")
+
+    # Sin acciones ejecutadas: debe renderizar la tabla vacía sin romper
+    rep_sin_acciones = generate_audit_report(str(html_path / "orig.xlsx"), str(html_path / "clean.xlsx"),
+                                             CleaningResult((), 5, 5, 3, 3),
+                                             ValidationResult(valid=True, errors=(), warnings=()),
+                                             df_html, df_html_clean, language="es")
+    html_vacio_raw = export_audit_report(rep_sin_acciones, str(html_path), format="html")
+    html_vacio_txt = Path(html_vacio_raw).read_text(encoding="utf-8")
+    _check("Acciones Ejecutadas" in html_vacio_txt,
+           "HTML sin acciones aún renderiza la sección de acciones")
+    _check("Transformaciones por Columna" in html_vacio_txt,
+           "HTML sin transformaciones aún renderiza la sección de transformaciones")
+
+    # Advertencias de limpieza: deben aparecer en la sección de warnings
+    res_warns = CleaningResult(actions_applied=actions_html, rows_before=10, rows_after=9,
+                                columns_before=2, columns_after=2,
+                                warnings=("Se perdieron 3 valores no numéricos en 'Monto' (convertidos a nulo).",))
+    rep_warns = generate_audit_report(str(html_path / "orig.xlsx"), str(html_path / "clean.xlsx"),
+                                      res_warns, val_html, df_html, df_html_clean, language="en")
+    html_warns_raw = export_audit_report(rep_warns, str(html_path), format="html")
+    html_warns_txt = Path(html_warns_raw).read_text(encoding="utf-8")
+    _check("Se perdieron 3 valores no numéricos" in html_warns_txt,
+           "HTML incluye la advertencia de limpieza")
+    _check("Cleaning Warnings" in html_warns_txt, "HTML en inglés tiene sección de advertencias")
+
+    # Integración: XLSX exportado con audit_report embebido, y HTML sidecar generado.
+    df_comb = pd.DataFrame({"A": [1], "B": ["x"]})
+    df_comb_clean = pd.DataFrame({"A": [1], "B": ["x"]})
+    rep_comb = generate_audit_report(str(html_path / "orig.csv"), str(html_path / "clean.xlsx"),
+                                     CleaningResult((), 1, 1, 2, 2),
+                                     val_html, df_comb, df_comb_clean, language="es")
+    xlsx_comb = html_path / "comb.xlsx"
+    export_dataframe(df_comb_clean, xlsx_comb, val_html, audit_report=rep_comb)
+    with pd.ExcelFile(xlsx_comb) as ef:
+        _check("Datos" in ef.sheet_names, "XLSX contiene hoja 'Datos'")
+        _check(AUDIT_SHEET_NAME in ef.sheet_names, "XLSX contiene hoja embebida _Reporte_Auditoria")
+    html_sidecar_raw = export_audit_report(rep_comb, str(html_path), format="html")
+    html_sidecar = Path(html_sidecar_raw)
+    _check(html_sidecar.exists(), "Sidecar HTML se genera alongside XLSX")
+    _check(html_sidecar.read_text(encoding="utf-8").startswith("<!DOCTYPE html>"), "Sidecar HTML es válido")
+
+    print("\nTODOS LOS TESTS DE AUDITORIA (TXT + JSON + HTML) PASARON.")
+
     return 0
 
 if __name__ == "__main__":

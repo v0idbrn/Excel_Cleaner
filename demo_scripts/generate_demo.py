@@ -104,19 +104,33 @@ def main() -> int:
 
     # 5. Exporter: reporte de auditoria ANTES de escribir -> hoja embebida + sidecar.
     #    Cero escritura sin validacion (barrera Zero-Trust intacta).
-    report = generate_audit_report(DIRTY, CLEAN, result, validation, df, df_clean)
-    export_dataframe(df_clean, CLEAN, validation, audit_report=report)
-    generated = export_audit_report(report, DEMO)  # <stem>_audit_report.txt
-    shutil.move(generated, TXT)
-    assert CLEAN.exists() and TXT.exists()
+    #    Para el portfolio generamos: TXT (español), HTML (inglés, certificado visual),
+    #    y la pestaña embebida _Reporte_Auditoria dentro del XLSX.
+    report_es = generate_audit_report(DIRTY, CLEAN, result, validation, df, df_clean, language="es")
+    report_en = generate_audit_report(DIRTY, CLEAN, result, validation, df, df_clean, language="en")
+
+    # XLSX con pestaña embebida (usamos el reporte en español por defecto)
+    export_dataframe(df_clean, CLEAN, validation, audit_report=report_es)
+
+    # Sidecar TXT en español
+    generated_tx = export_audit_report(report_es, DEMO, format="txt")
+    shutil.move(generated_tx, TXT)
+
+    # Sidecar HTML en inglés (certificado tipo PDF para Standard/Premium)
+    html_path = Path(export_audit_report(report_en, DEMO, format="html"))
+
+    assert CLEAN.exists() and TXT.exists() and html_path.exists()
     print(f"[2/3] Resultado limpio: {CLEAN.name}")
-    print(f"[3/3] Reporte de auditoria: {TXT.name}")
+    print(f"[3/3] Reporte de auditoria: {TXT.name}  +  {html_path.name}")
 
     # Resumen para el portfolio
     print("\n=== RESUMEN DEMO ===")
     print(f"Filas: {result.rows_before} -> {result.rows_after}")
     for w in result.warnings:
         print(" -", w)
+    print(f"\nPortfolio listo en {DEMO}:")
+    for f in sorted(DEMO.iterdir()):
+        print(f"  - {f.name} ({f.stat().st_size} bytes)")
     return 0
 
 

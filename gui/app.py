@@ -257,22 +257,23 @@ class ExcelCleanerApp:
                 self.dashboard.set_buttons_state(export=tk.DISABLED)
                 errors_str = "\n".join(self.validation_result.errors)
                 messagebox.showerror("Error de Validación", f"Se detectaron mutaciones no autorizadas:\n{errors_str}")
-                
         elif msg_type == "EXPORT_DONE":
-            # Compatibilidad: data puede ser ExportResult (tests/legacy) o (res, audit_path, audit_error)
+            # data = (ExportResult, list[str] audit_paths, str|None audit_error)
             if isinstance(data, tuple) and len(data) == 3:
-                res, audit_path, audit_error = data
+                res, audit_paths, audit_error = data
             else:
-                res, audit_path, audit_error = data, None, None
+                # Compatibilidad legacy/tests: solo ExportResult.
+                res, audit_paths, audit_error = data, [], None
             self.dashboard.progress.stop()
-            if audit_path:
-                self.dashboard.update_status("Archivo y Reporte de Auditoría guardados correctamente.")
+            if audit_paths:
+                paths_summary = "\n".join(f"  • {Path(p).name}" for p in audit_paths)
+                self.dashboard.update_status("Archivo y Reporte(s) de Auditoría guardados correctamente.")
                 messagebox.showinfo(
                     "Éxito",
-                    f"Archivo y Reporte de Auditoría guardados con éxito.\n"
-                    f"Archivo: {res.path}\n"
-                    f"Reporte: {audit_path}\n"
-                    f"Filas: {res.rows_exported}",
+                    f"Archivo y Reporte(s) de Auditoría guardados con éxito.\n\n"
+                    f"Archivo limpio: {res.path}\n"
+                    f"Filas exportadas: {res.rows_exported}\n\n"
+                    f"Reportes de auditoría:\n{paths_summary}",
                 )
             elif audit_error:
                 # Cero excepciones silenciosas: el export OK se informa, el fallo del reporte también.
@@ -285,6 +286,7 @@ class ExcelCleanerApp:
             else:
                 self.dashboard.update_status("Archivo exportado correctamente.")
                 messagebox.showinfo("Éxito", f"Archivo generado:\n{res.path}\nFilas: {res.rows_exported}")
+            
             
         elif msg_type == "BATCH_PROGRESS":
             done, total, name = data
@@ -569,22 +571,42 @@ class ExcelCleanerApp:
         if report_lang not in ("es", "en"):
             report_lang = "es"
 
-        self.dashboard.set_buttons_state(export=tk.DISABLED)
-        self.dashboard.update_status(f"Exportando archivo... (reporte: {report_lang})")
-        self.dashboard.progress.start(15)
-        threading.Thread(target=self._worker_export, args=(filepath, report_lang), daemon=True).start()
+        # Formato del reporte de auditoría.
+        # En los paquetes Standard/Premium se suele entregar el certificado tipo
+        # "PDF" (en realidad HTML listo para imprimir desde el navegador).
+        report_fmt = (simpledialog.askstring(
+            "Audit report format / Formato del reporte",
+            "Formato del reporte de auditoría:\n"
+            "  txt  = texto plano (.txt)\n"
+            "  html = certificado profesional imprimible (.html)\n"
+            "  ambos = txt + html (Standard/Premium)\n\n"
+            "Audit report format (txt/html/ambos):",
+            initialvalue="ambos",
+        ) or "ambos").strip().lower()
+        if report_fmt not in ("txt", "html", "ambos"):
+            report_fmt = "ambos"
 
-    def _worker_export(self, filepath, report_lang="es"):
+        self.dashboard.set_buttons_state(export=tk.DISABLED)
+        self.dashboard.update_status(
+            f"Exportando archivo... (reporte: {report_lang}, formato: {report_fmt})")
+        self.dashboard.progress.start(15)
+        threading.Thread(
+            target=self._worker_export,
+            args=(filepath, report_lang, report_fmt),
+            daemon=True,
+        ).start()
+
+    def _worker_export(self, filepath, report_lang="es", report_fmt="ambos"):
         try:
             if self.cleaned_df is None or self.validation_result is None:
                 raise ValueError("Faltan datos limpios o validados para exportar.")
 
-            # --- Reporte de Auditoría (Fase 8.5 + Paso 8) ---
+            # --- Reporte de Auditoría (Fase 8.5 + Paso 8 + HTML para Standard/Premium) ---
             # Se genera ANTES de escribir para poder embeberlo como pestaña
-            # _Reporte_Auditoria dentro del XLSX (y sidecar .txt). Un fallo del
-            # reporte NO invalida el export, pero NUNCA se omite en silencio.
+            # _Reporte_Auditoria dentro del XLSX (y sidecar .txt/.html).
+            # Un fallo del reporte NO invalida el export, pero NUNCA se omite en silencio.
             audit_report = None
-            audit_path = None
+            audit_paths: list[str] = []
             audit_error = None
             try:
                 if self.cleaning_result is not None and self.original_df is not None:
@@ -603,14 +625,23 @@ class ExcelCleanerApp:
             res = export_dataframe(self.cleaned_df, filepath, self.validation_result,
                                    overwrite=True, audit_report=audit_report)
 
-            # Sidecar .txt en el mismo directorio (además de la pestaña embebida).
-            try:
-                if audit_report is not None:
-                    audit_path = export_audit_report(audit_report, format="txt")
-            except Exception as e:  # noqa: BLE001
-                audit_error = audit_error or f"{type(e).__name__}: {e}"
+            # Sidecar(s) en el mismo directorio (además de la pestaña embebida).
+            if audit_report is not None:
+                formats: list[str] = []
+                if report_fmt in ("txt", "ambos"):
+                    formats.append("txt")
+                if report_fmt in ("html", "ambos"):
+                    formats.append("html")
+                for fmt in formats:
+                    try:
+                        p = export_audit_report(audit_report, format=fmt)
+                        audit_paths.append(p)
+                    except Exception as e:  # noqa: BLE001
+                        audit_error = audit_error or f"{type(e).__name__}: {e}"
 
-            self.task_queue.put(("EXPORT_DONE", (res, audit_path, audit_error)))
+            # Resumen legible para el mensaje de éxito.
+            paths_summary = "\n".join(f"  • {Path(p).name}" for p in audit_paths) if audit_paths else "  (sin reporte de auditoría)"
+            self.task_queue.put(("EXPORT_DONE", (res, audit_paths, audit_error)))
         except ExportError as e:
             self.task_queue.put(("ERROR", str(e)))
             self.task_queue.put(("CLEAN_VALIDATE_DONE", (self.cleaned_df, self.cleaning_result, self.validation_result)))

@@ -34,8 +34,8 @@ class ExportError(Exception):
 # Nombre fijo de la pestaña de auditoría embebida en los XLSX exportados.
 AUDIT_SHEET_NAME = "_Reporte_Auditoria"
 
-# Idiomas soportados para los reportes de auditoría (TXT/JSON/pestaña embebida).
-SUPPORTED_LANGUAGES = ("es", "en")
+# Idiomas soportados para los reportes de auditoría (TXT/JSON/HTML/pestaña embebida).
+SUPPORTED_LANGUAGES = ("es", "en")  # txt, json, html, pestaña embebida
 
 
 def export_dataframe(
@@ -424,7 +424,11 @@ def export_audit_report(
     Args:
         audit_report: El reporte de auditoría a exportar.
         output_dir: Directorio de salida (default: mismo que el archivo exportado).
-        format: Formato del reporte ("txt" o "json").
+        format: Formato del reporte ("txt", "json" o "html").
+          - "txt":  texto plano legible (sidecar).
+          - "json": datos estructurados.
+          - "html": certificado tipo PDF, listo para imprimir desde el navegador
+                    (entregable Standard/Premium).
 
     Returns:
         Ruta absoluta del archivo generado.
@@ -449,8 +453,12 @@ def export_audit_report(
     elif format.lower() == "json":
         report_path = output_dir / f"{base_name}_audit_report.json"
         _write_json_report(report_path, audit_report)
+    elif format.lower() == "html":
+        report_path = output_dir / f"{base_name}_audit_report.html"
+        _write_html_report(report_path, audit_report)
     else:
-        raise ExportError(f"Formato de reporte no soportado: '{format}'. Use 'txt' o 'json'.")
+        raise ExportError(
+            f"Formato de reporte no soportado: '{format}'. Use 'txt', 'json' o 'html'.")
 
     if not report_path.exists() or report_path.stat().st_size == 0:
         raise ExportError("Fallo critico: El reporte de auditoría no se pudo generar correctamente.")
@@ -642,3 +650,237 @@ def _write_json_report(path: Path, report: AuditReport) -> None:
         json.dumps(report.to_dict(), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _write_html_report(path: Path, report: AuditReport) -> None:
+    """Escribe el reporte de auditoría en HTML estilo certificado profesional (PDF-ready).
+
+    Contenido:
+      - Encabezado con marca y título del certificado (localizable es/en).
+      - Ficha de archivos origen/exportado.
+      - KPI resumen: filas originales/finales, eliminadas, columnas.
+      - Veredicto de validación Zero-Trust (badge VÁLIDA / NO VÁLIDA) + errores/warnings.
+      - Tabla de acciones ejecutadas (acción, columna, descripción, parámetros, fuente, estado).
+      - Tabla de transformaciones por columna (entrada/salida, nulos, cambios).
+      - Bloque de advertencias de limpieza (si las hay).
+      - Pie de página con timestamp UTC, versión del motor y disclaimer.
+
+    Este formato es el entregable tipo "certificado" para los paquetes Standard/Premium:
+    se abre en cualquier navegador y se imprime a PDF con Ctrl+P / Cmd+P.
+
+    Regla de privacidad: el certificado solo contiene metadatos de la sesión de limpieza
+    (archivos, métricas, acciones, transformaciones, advertencias). Nunca contiene valores
+    crudos de celdas del archivo original.
+    """
+    language: str = report.language if report.language else "es"
+    en = language == "en"
+
+    if en:
+        brand = "Excel Cleaner"
+        doc_title = "Audit Report"
+        doc_subtitle = "Data Cleaning Certificate"
+        files_section = "Files"
+        original_file_label = "Original file"
+        export_file_label = "Exported file"
+        metrics_section = "Summary"
+        rows_before_label = "Rows before"
+        rows_after_label = "Rows after"
+        rows_removed_label = "Rows removed"
+        columns_before_label = "Columns before"
+        columns_after_label = "Columns after"
+        validation_section = "Zero-Trust Validation"
+        validation_valid_text = "VALID - Export complies with all integrity rules"
+        validation_invalid_text = "NOT VALID - Export was blocked by the Validator"
+        actions_section = "Actions Executed"
+        actions_headers = ("Action", "Column", "Description", "Parameters", "Source", "Status")
+        actions_status = lambda a: "Approved" if a.approved else "Pending"
+        transforms_section = "Column Transformations"
+        transforms_headers = ("Column", "Action", "Input type", "Output type", "Nulls before", "Nulls after", "Changes", "Summary")
+        warnings_section = "Cleaning Warnings"
+        no_warnings_text = "No warnings during cleaning."
+        footer_disclaimer = (
+            "This certificate is generated automatically by Excel Cleaner. "
+            "The original file is preserved unchanged. All transformations were applied only "
+            "after explicit human approval and passed a mathematical integrity validation."
+        )
+    else:
+        brand = "Excel Cleaner"
+        doc_title = "Reporte de Auditoría"
+        doc_subtitle = "Certificado de Limpieza de Datos"
+        files_section = "Archivos"
+        original_file_label = "Archivo original"
+        export_file_label = "Archivo exportado"
+        metrics_section = "Resumen"
+        rows_before_label = "Filas antes"
+        rows_after_label = "Filas después"
+        rows_removed_label = "Filas eliminadas"
+        columns_before_label = "Columnas antes"
+        columns_after_label = "Columnas después"
+        validation_section = "Validación Zero-Trust"
+        validation_valid_text = "VÁLIDA - La exportación cumple con todas las reglas de integridad"
+        validation_invalid_text = "NO VÁLIDA - La exportación fue bloqueada por el Validator"
+        actions_section = "Acciones Ejecutadas"
+        actions_headers = ("Acción", "Columna", "Descripción", "Parámetros", "Fuente", "Estado")
+        actions_status = lambda a: "Aprobada" if a.approved else "Pendiente"
+        transforms_section = "Transformaciones por Columna"
+        transforms_headers = ("Columna", "Acción", "Tipo entrada", "Tipo salida", "Nulos antes", "Nulos después", "Cambios", "Resumen")
+        warnings_section = "Advertencias de Limpieza"
+        no_warnings_text = "No hubo advertencias durante la limpieza."
+        footer_disclaimer = (
+            "Este certificado es generado automáticamente por Excel Cleaner. "
+            "El archivo original permanece intacto. Todas las transformaciones fueron aplicadas únicamente "
+            "tras aprobación humana explícita y superaron una validación matemática de integridad."
+        )
+
+    ts = report.export_timestamp.strftime("%Y-%m-%d %H:%M:%S UTC") if en else report.export_timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+    validation_ok = report.validation_valid
+    badge_color = "#16a34a" if validation_ok else "#dc2626"
+    badge_text = validation_valid_text if validation_ok else validation_invalid_text
+
+    rows = [
+        f"<tr><th>{rows_before_label}</th><td>{report.rows_before}</td></tr>",
+        f"<tr><th>{rows_after_label}</th><td>{report.rows_after}</td></tr>",
+        f"<tr><th>{rows_removed_label}</th><td>{report.rows_removed}</td></tr>",
+        f"<tr><th>{columns_before_label}</th><td>{report.columns_before}</td></tr>",
+        f"<tr><th>{columns_after_label}</th><td>{report.columns_after}</td></tr>",
+    ]
+
+    actions_rows = []
+    if report.actions_executed:
+        for a in report.actions_executed:
+            actions_rows.append(
+                f"<tr>"
+                f"<td>{a.action_id}</td>"
+                f"<td>{a.column or '-' if en else a.column or '-'}</td>"
+                f"<td>{a.description}</td>"
+                f"<td>{a.parameters if a.parameters else '{}'}</td>"
+                f"<td>{a.source}</td>"
+                f"<td>{actions_status(a)}</td>"
+                f"</tr>"
+            )
+    else:
+        actions_rows.append(f"<tr><td colspan=\"6\">{'-' if en else '-'}</td></tr>")
+
+    transforms_rows = []
+    if report.transforms:
+        for t in report.transforms:
+            transforms_rows.append(
+                f"<tr>"
+                f"<td>{t.column}</td>"
+                f"<td>{t.action_id}</td>"
+                f"<td>{t.input_dtype}</td>"
+                f"<td>{t.output_dtype}</td>"
+                f"<td>{t.nulls_before}</td>"
+                f"<td>{t.nulls_after}</td>"
+                f"<td>{t.values_changed}</td>"
+                f"<td>{t.summary or '-'}</td>"
+                f"</tr>"
+            )
+    else:
+        transforms_rows.append(f"<tr><td colspan=\"8\">{'-' if en else '-'}</td></tr>")
+
+    warnings_html = ""
+    if report.cleaning_warnings:
+        for w in report.cleaning_warnings:
+            warnings_html += f"<li>{w}</li>"
+    else:
+        warnings_html = f"<li>{no_warnings_text}</li>"
+
+    html = f"""<!DOCTYPE html>
+<html lang="{'en' if en else 'es'}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{doc_title} — {report.original_file}</title>
+<style>
+@page {{ size: A4; margin: 18mm; }}
+* {{ box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }}
+body {{ margin: 0; background: #f6f7f9; color: #1f2937; }}
+.cert {{ max-width: 820px; margin: 22px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden; }}
+.cert-head {{ background: #0f172a; color: #ffffff; padding: 26px 30px; }}
+.brand {{ font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.85; }}
+.doc-title {{ font-size: 22px; font-weight: 700; margin-top: 6px; }}
+.doc-subtitle {{ font-size: 12px; opacity: 0.8; margin-top: 4px; }}
+.cert-body {{ padding: 24px 30px 6px; }}
+.section {{ margin-bottom: 22px; }}
+.section h2 {{ font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: #6b7280; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; margin: 0 0 12px; }}
+.kpi-grid {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }}
+.kpi {{ padding: 12px 14px; text-align: center; border-right: 1px solid #e5e7eb; }}
+.kpi:last-child {{ border-right: 0; }}
+.kpi .value {{ font-size: 22px; font-weight: 700; color: #0f172a; }}
+.kpi .label {{ font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 3px; }}
+.file-row {{ display: flex; gap: 24px; font-size: 13px; }}
+.file-row div {{ flex: 1; }}
+.file-row .lbl {{ color: #6b7280; margin-bottom: 2px; }}
+.file-row .val {{ word-break: break-all; }}
+.badge {{ display: inline-block; padding: 6px 12px; border-radius: 999px; color: #ffffff; font-size: 12px; font-weight: 600; background: {badge_color}; }}
+table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
+th {{ text-align: left; background: #f3f4f6; color: #374151; padding: 8px 10px; border-bottom: 1px solid #d1d5db; font-weight: 600; }}
+td {{ padding: 8px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }}
+tr:nth-child(even) td {{ background: #fafafa; }}
+ul.warning-list {{ margin: 0; padding-left: 18px; }}
+ul.warning-list li {{ margin-bottom: 4px; font-size: 13px; }}
+.footer {{ background: #f9fafb; padding: 14px 30px; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb; }}
+.footer strong {{ color: #374151; }}
+</style>
+</head>
+<body>
+<div class="cert">
+  <div class="cert-head">
+    <div class="brand">{brand}</div>
+    <div class="doc-title">{doc_title}</div>
+    <div class="doc-subtitle">{doc_subtitle}</div>
+  </div>
+  <div class="cert-body">
+    <div class="section">
+      <h2>{files_section}</h2>
+      <div class="file-row">
+        <div><div class="lbl">{original_file_label}:</div><div class="val">{report.original_file}</div></div>
+        <div><div class="lbl">{export_file_label}:</div><div class="val">{report.export_file}</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>{metrics_section}</h2>
+      <div class="kpi-grid">
+        {''.join(rows)}
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>{validation_section}</h2>
+      <span class="badge">{badge_text}</span>
+      {f'<ul class="warning-list" style="margin-top:10px;">' + ''.join(f'<li>{e}</li>' for e in report.validation_errors) + '</ul>' if report.validation_errors else ''}
+      {f'<ul class="warning-list" style="margin-top:10px;">' + ''.join(f'<li>{w}</li>' for w in report.validation_warnings) + '</ul>' if report.validation_warnings else ''}
+    </div>
+
+    <div class="section">
+      <h2>{actions_section}</h2>
+      <table>
+        <thead><tr>{''.join(f'<th>{h}</th>' for h in actions_headers)}</tr></thead>
+        <tbody>{''.join(actions_rows)}</tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>{transforms_section}</h2>
+      <table>
+        <thead><tr>{''.join(f'<th>{h}</th>' for h in transforms_headers)}</tr></thead>
+        <tbody>{''.join(transforms_rows)}</tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>{warnings_section}</h2>
+      <ul class="warning-list">{warnings_html}</ul>
+    </div>
+  </div>
+  <div class="footer">
+    <strong>{ts}</strong> &nbsp;|&nbsp; Motor versión {report.cleaner_version}<br>
+    {footer_disclaimer}
+  </div>
+</div>
+</body>
+</html>"""
+
+    path.write_text(html, encoding="utf-8")

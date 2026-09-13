@@ -1,0 +1,58 @@
+======================================================================
+AUDIT REPORT - EXCEL CLEANER
+======================================================================
+
+Timestamp UTC: 2026-09-10T03:00:37.255310+00:00
+Cleaner version: 1.1.0
+
+----------------------------------------------------------------------
+FILES
+----------------------------------------------------------------------
+Original file: demo_portfolio\1_original_sucio.xlsx
+Exported file: demo_portfolio\2_resultado_limpio.xlsx
+
+----------------------------------------------------------------------
+GLOBAL CLEANING METRICS
+----------------------------------------------------------------------
+Rows before: 8
+Rows after: 7
+Rows removed: 1
+Columns before: 6
+Columns after: 6
+
+----------------------------------------------------------------------
+VALIDATION (ZERO-TRUST)
+----------------------------------------------------------------------
+Status: VALID - Export complies with all integrity rules.
+  WARNING: Ready for B2B delivery
+
+----------------------------------------------------------------------
+ACTIONS EXECUTED
+----------------------------------------------------------------------
+1. [eliminar_filas_vacias] Column: GLOBAL
+   Description: Eliminar filas vacias (demo portfolio)
+   Parameters: {}
+   Source: analyzer
+   Approved: True
+
+----------------------------------------------------------------------
+COLUMN TRANSFORMATIONS
+----------------------------------------------------------------------
+Column: GLOBAL
+  Action: eliminar_filas_vacias
+  Input type: df_(8, 6)
+  Output type: df_(7, 6)
+  Nulls before: 5
+  Nulls after: 6
+  Values changed: 1
+  Summary: Filas: 8 -> 7 (eliminadas: 1)
+
+----------------------------------------------------------------------
+CLEANING WARNINGS
+----------------------------------------------------------------------
+  - Basura convertida a nulo: 6 celdas
+
+======================================================================
+END OF AUDIT REPORT
+======================================================================
+
