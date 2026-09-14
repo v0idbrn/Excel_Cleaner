@@ -13,7 +13,7 @@ import sys
 import tkinter as tk
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
@@ -130,14 +130,29 @@ class TestCustomHandlerEndToEnd(unittest.TestCase):
         })
         # TODOS los diálogos van simulados: un messagebox real bloquearía el test
         # esperando un clic humano (lección de la primera corrida).
-        for target, attr in (("gui.app.tk", "simpledialog"),
-                             ("gui.app.messagebox", "showerror"),
+        # Los mocks se enchufan a los SEAMS de diálogo (gui.app._ask_*), que es
+        # por donde ahora pasa la conversación. _ask_option y _ask_text comparten
+        # UN mock de askstring: las secuencias side_effect de los tests describen
+        # la conversación completa en orden (menú -> prompts).
+        import gui.app as gui_app
+        for target, attr in (("gui.app.messagebox", "showerror"),
                              ("gui.app.messagebox", "showinfo"),
                              ("gui.app.messagebox", "showwarning"),
                              ("gui.app.messagebox", "askyesno")):
             patcher = patch(f"{target}.{attr}")
             setattr(self, f"mock_{attr}", patcher.start())
             self.addCleanup(patcher.stop)
+
+        shared_dialog = MagicMock(name="simpledialog_shared")
+        self.mock_simpledialog = shared_dialog  # compat: .askstring.side_effect = [...]
+        for seam in ("_ask_option", "_ask_text"):
+            patcher = patch.object(gui_app, seam, new=shared_dialog.askstring)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        patcher = patch.object(gui_app, "_ask_yes_no",
+                               new=lambda *a, **k: self.mock_askyesno(*a, **k))
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _approve_all(self):
         for var in self.app.issues_panel.action_vars:

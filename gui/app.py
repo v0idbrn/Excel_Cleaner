@@ -21,7 +21,8 @@ from cleaner import clean_dataframe
 from exporter import ExportError, export_audit_report, export_dataframe, generate_audit_report
 from gui.dashboard import Dashboard
 from gui.issues_panel import IssuesPanel
-from models import CleaningAction, FileInfo, FileType
+from models import AIResponse, CleaningAction, FileInfo, FileType
+from validators import validate_cleaning
 # ---------------------------------------------------------------------------
 # ACCIONES PERSONALIZADAS (Fase 9.1): constructores PUROS (testeables sin Tk).
 # Valida la entrada del usuario y produce CleaningAction con approved=False:
@@ -139,6 +140,38 @@ def _build_replace_action(column: str, mappings: list[dict], available: list[str
         approved=False,
         parameters={"mappings": cleaned},
         source="manual",
+    )
+
+
+# ---------------------------------------------------------------------------
+# SEAMS DE DIÁLOGO (testeables): la conversación con el usuario vive en estas
+# funciones módulo-nivel; los handlers solo orquestan. Convención: CANCELAR
+# devuelve None/False y el handler no agrega acciones ni arranca operaciones.
+# ---------------------------------------------------------------------------
+
+def _ask_option(title: str, prompt: str, initialvalue: str) -> str | None:
+    """Pide una opción de menú (texto corto validable)."""
+    return _ask_text(title, prompt, initialvalue=initialvalue)
+
+
+def _ask_text(title: str, prompt: str, initialvalue: str = "") -> str | None:
+    """Pide un texto libre (columnas, delimitadores, nombres...)."""
+    return _ask_text(title, prompt, initialvalue=initialvalue)
+
+
+def _ask_yes_no(title: str, prompt: str) -> bool:
+    """Pregunta sí/no (cancelar == no)."""
+    return messagebox.askyesno(title, prompt)
+
+
+def _ask_sheet(parent, sheets: tuple[str, ...]) -> str | None:
+    """Selector de hoja para XLSX multi-hoja. None = usuario canceló."""
+    return tk.simpledialog.askstring(
+        "Hoja de Excel",
+        "El archivo tiene varias hojas:\n  - " + "\n  - ".join(sheets)
+        + "\n\nEscriba el nombre de la hoja a procesar:",
+        initialvalue=sheets[0],
+        parent=parent,
     )
 
 
@@ -286,7 +319,7 @@ class ExcelCleanerApp:
             else:
                 self.dashboard.update_status("Archivo exportado correctamente.")
                 messagebox.showinfo("Éxito", f"Archivo generado:\n{res.path}\nFilas: {res.rows_exported}")
-            
+            
             
         elif msg_type == "BATCH_PROGRESS":
             done, total, name = data
@@ -331,7 +364,7 @@ class ExcelCleanerApp:
             return
         available = [str(c) for c in self.original_df.columns]
 
-        op = tk.simpledialog.askstring(
+        op = _ask_option(
             "Acciones personalizadas",
             "¿Qué operación desea agregar como PROPUESTA (requiere su aprobación)?\n\n"
             "  1. Duplicados por columna (elegí las columnas criterio)\n"
@@ -348,7 +381,7 @@ class ExcelCleanerApp:
         try:
             if op == "1":
                 subset = _parse_column_list(
-                    tk.simpledialog.askstring(
+                    _ask_text(
                         "Duplicados por columna",
                         "Columna(s) criterio (separadas por coma):\n\n"
                         f"Columnas disponibles: {', '.join(available)}",
@@ -356,22 +389,22 @@ class ExcelCleanerApp:
                     ),
                     available,
                 )
-                keep = tk.simpledialog.askstring(
+                keep = _ask_text(
                     "Duplicados por columna", "¿Cuál conservar? (first/last):", initialvalue="first"
                 ) or "first"
                 action = _build_dedup_action(subset, keep)
 
             elif op == "2":
-                column = tk.simpledialog.askstring(
+                column = _ask_text(
                     "Dividir columna", "Columna a dividir:",
                     initialvalue=available[0] if available else "",
                 )
-                delimiter = tk.simpledialog.askstring(
+                delimiter = _ask_text(
                     "Dividir columna",
                     "Delimitador LITERAL (ej: espacio, coma, guion):",
                     initialvalue=" ",
                 )
-                names_raw = tk.simpledialog.askstring(
+                names_raw = _ask_text(
                     "Dividir columna",
                     "Nombres de las nuevas columnas (separados por coma):",
                     initialvalue="Parte1, Parte2",
@@ -383,7 +416,7 @@ class ExcelCleanerApp:
 
             elif op == "3":
                 sources = _parse_column_list(
-                    tk.simpledialog.askstring(
+                    _ask_text(
                         "Unir columnas",
                         "Columnas a unir (separadas por coma, en orden):\n\n"
                         f"Columnas disponibles: {', '.join(available)}",
@@ -391,13 +424,13 @@ class ExcelCleanerApp:
                     ),
                     available,
                 )
-                new_name = tk.simpledialog.askstring(
+                new_name = _ask_text(
                     "Unir columnas", "Nombre de la columna resultante:", initialvalue="Union"
                 )
-                separator = tk.simpledialog.askstring(
+                separator = _ask_text(
                     "Unir columnas", "Separador entre valores:", initialvalue=" "
                 )
-                drop = messagebox.askyesno(
+                drop = _ask_yes_no(
                     "Unir columnas", "¿Eliminar las columnas de origen después de unir?"
                 )
                 if new_name is None or separator is None:
@@ -405,19 +438,19 @@ class ExcelCleanerApp:
                 action = _build_merge_action(sources, new_name, separator, drop, available)
 
             elif op == "4":
-                column = tk.simpledialog.askstring(
+                column = _ask_text(
                     "Reemplazar valores", "Columna donde reemplazar:",
                     initialvalue=available[0] if available else "",
                 )
-                find = tk.simpledialog.askstring(
+                find = _ask_text(
                     "Reemplazar valores",
                     "Texto a buscar (ej: N/A, null, ---):", initialvalue="N/A",
                 )
-                replace = tk.simpledialog.askstring(
+                replace = _ask_text(
                     "Reemplazar valores",
                     "Reemplazo (VACÍO = convertir a nulo real):", initialvalue="",
                 )
-                mode = tk.simpledialog.askstring(
+                mode = _ask_text(
                     "Reemplazar valores",
                     "Modo de coincidencia (exact/contains/regex):", initialvalue="exact",
                 )
@@ -457,12 +490,7 @@ class ExcelCleanerApp:
                 messagebox.showerror("Error", str(e))
                 return
             if len(sheets) > 1:
-                sheet_name = simpledialog.askstring(
-                    "Hoja de Excel",
-                    "El archivo tiene varias hojas:\n  - " + "\n  - ".join(sheets)
-                    + "\n\nEscriba el nombre de la hoja a procesar:",
-                    initialvalue=sheets[0],
-                )
+                sheet_name = _ask_sheet(self.root, sheets)
                 if not sheet_name:
                     return  # el usuario canceló la selección
                 sheet_name = sheet_name.strip()
@@ -563,10 +591,10 @@ class ExcelCleanerApp:
 
         # Idioma del reporte de auditoría ("es" por defecto, "en" para clientes
         # internacionales). Cancelar el diálogo = exportar con reporte en español.
-        report_lang = (simpledialog.askstring(
+        report_lang = (_ask_text(
             "Audit report language / Idioma del reporte",
             "Idioma del reporte de auditoría (es/en):\nAudit report language (es/en):",
-            initialvalue="es",
+            "es",
         ) or "es").strip().lower()
         if report_lang not in ("es", "en"):
             report_lang = "es"
@@ -574,14 +602,14 @@ class ExcelCleanerApp:
         # Formato del reporte de auditoría.
         # En los paquetes Standard/Premium se suele entregar el certificado tipo
         # "PDF" (en realidad HTML listo para imprimir desde el navegador).
-        report_fmt = (simpledialog.askstring(
+        report_fmt = (_ask_text(
             "Audit report format / Formato del reporte",
             "Formato del reporte de auditoría:\n"
             "  txt  = texto plano (.txt)\n"
             "  html = certificado profesional imprimible (.html)\n"
             "  ambos = txt + html (Standard/Premium)\n\n"
             "Audit report format (txt/html/ambos):",
-            initialvalue="ambos",
+            "ambos",
         ) or "ambos").strip().lower()
         if report_fmt not in ("txt", "html", "ambos"):
             report_fmt = "ambos"
@@ -654,7 +682,7 @@ class ExcelCleanerApp:
 
     def on_batch(self):
         """Pregunta el modo: carpeta completa o selección manual de archivos."""
-        modo = tk.simpledialog.askstring(
+        modo = _ask_option(
             "Batch Mode",
             "Escriba el modo de procesamiento:\n"
             "  - 'carpeta'  : procesa TODOS los .csv/.xlsx/.xls de una carpeta\n"
