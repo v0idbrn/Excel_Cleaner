@@ -19,8 +19,11 @@ from models import CleaningAction, ExportResult, ValidationResult
 class TestExcelCleanerGUI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = tk.Tk()
-        cls.root.withdraw() # Ocultar ventana para tests
+        try:
+            cls.root = tk.Tk()
+            cls.root.withdraw() # Ocultar ventana para tests
+        except Exception as exc:  # sin display (CI headless): saltar la suite
+            raise unittest.SkipTest(f"Tkinter no disponible en este entorno: {exc}")
 
     def setUp(self):
         self.app = ExcelCleanerApp(self.root)

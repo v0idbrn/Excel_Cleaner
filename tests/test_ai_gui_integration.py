@@ -37,8 +37,11 @@ def _check(condition, description):
 class TestGUIWithAI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = tk.Tk()
-        cls.root.withdraw()
+        try:
+            cls.root = tk.Tk()
+            cls.root.withdraw()
+        except Exception as exc:  # sin display (CI headless): saltar la suite
+            raise unittest.SkipTest(f"Tkinter no disponible en este entorno: {exc}")
 
     def setUp(self):
         self.app = ExcelCleanerApp(self.root)
@@ -198,6 +201,12 @@ def main():
         tc.setUp()
         tc.test_gui_approved_actions_from_issues_panel()
         test_on_ai_analyze_invokes_generate_proposals()
+    except unittest.SkipTest as exc:
+        # CI headless (sin display): los tests GUI+IA no aplican ahí.
+        # Skip visible, NO fallo (el suite unittest de este archivo ya reporta
+        # el mismo skip vía setUpClass).
+        print(f"\n[SKIP] Tests GUI+IA requieren display: {exc}")
+        return 0
     except AssertionError:
         print("\nFALLO ALGUN TEST GUI+IA.")
         return 1

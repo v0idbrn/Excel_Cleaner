@@ -437,7 +437,11 @@ def main() -> int:
 
         report_path7 = Path(export_audit_report(report7, format="txt"))
 
-        _check(report_path7.parent == export_path7.parent, "Directorio del reporte = directorio del archivo exportado")
+        # Ambos lados resueltos: en CI, %TEMP% contiene un nombre corto 8.3
+        # (RUNNER~1) que Path.resolve() expande solo en un lado => comparación
+        # de representación, no de ubicación. Resolviendo ambos, es de rutas reales.
+        _check(report_path7.resolve().parent == export_path7.resolve().parent,
+               "Directorio del reporte = directorio del archivo exportado")
         _check(report_path7.name == "datos_audit_report.txt", "Nombre del reporte basado en archivo exportado")
 
     # Test A8: La generacion del reporte no altera los DataFrames originales

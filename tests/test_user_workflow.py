@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
+import unittest
 from pathlib import Path
 
 import pandas as pd
@@ -35,10 +36,16 @@ def _check(condition: bool, description: str) -> None:
 
 
 def _simulate_panel(actions_in: tuple[CleaningAction, ...], approved_flags: tuple[bool, ...]) -> tuple[CleaningAction, ...]:
-    """Simula el panel real: populate + toggles del usuario + get_approved_actions."""
+    """Simula el panel real: populate + toggles del usuario + get_approved_actions.
+
+    Requiere display: en CI headless (sin Xvfb) salta vía unittest.SkipTest,
+    que main() cuenta como PASS parcial pero visible ("SKIP")."""
     import tkinter as tk
 
-    root = tk.Tk()
+    try:
+        root = tk.Tk()
+    except Exception as exc:  # sin display (CI headless)
+        raise unittest.SkipTest(f"Tkinter no disponible en este entorno: {exc}")
     root.withdraw()
     try:
         panel = IssuesPanel(root)
@@ -131,11 +138,21 @@ def main() -> int:
     print("=" * 70)
     print("TESTS DE FLUJO DE USUARIO (panel -> cleaner -> validator -> export)")
     print("=" * 70)
-    test_actions_roundtrip_preserves_parameters()
-    test_approved_gui_actions_pass_validator_and_export()
-    test_mutation_attempt_blocked_end_to_end()
+    # Los tests que usan el panel real requieren display: en CI headless el
+    # SkipTest se reporta como SKIP (visible) y NO cuenta como fallo.
+    skipped = 0
+    for test_fn in (
+        test_actions_roundtrip_preserves_parameters,
+        test_approved_gui_actions_pass_validator_and_export,
+        test_mutation_attempt_blocked_end_to_end,
+    ):
+        try:
+            test_fn()
+        except unittest.SkipTest as exc:
+            skipped += 1
+            print(f"  [SKIP] {test_fn.__name__}: {exc}")
     print("\n" + "=" * 70)
-    print(f"RESULTADO: {_CHECKS['pass']} PASS / {_CHECKS['fail']} FAIL")
+    print(f"RESULTADO: {_CHECKS['pass']} PASS / {_CHECKS['fail']} FAIL / {skipped} SKIP")
     print("=" * 70)
     return 0 if _CHECKS["fail"] == 0 else 1
 

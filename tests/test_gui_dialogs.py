@@ -29,8 +29,11 @@ from gui.app import ExcelCleanerApp  # noqa: E402
 class DialogSeamTestBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = tk.Tk()
-        cls.root.withdraw()
+        try:
+            cls.root = tk.Tk()
+            cls.root.withdraw()
+        except Exception as exc:  # sin display (CI headless): saltar la suite
+            raise unittest.SkipTest(f"Tkinter no disponible en este entorno: {exc}")
 
     @classmethod
     def tearDownClass(cls):
