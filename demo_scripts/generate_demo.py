@@ -5,8 +5,10 @@ Pasos:
 2) Ejecuta el pipeline: Analyzer (lectura) -> acciones propuestas -> APROBACION
    -> Cleaner -> Validator -> Exporter con hoja de auditoria + sidecar TXT.
 3) Deja en demo_portfolio/:
-   - 2_resultado_limpio.xlsx   (hoja "Datos" + hoja "_Reporte_Auditoria")
-   - 3_reporte_auditoria.txt   (resumen ejecutivo de auditoria)
+   - 2_resultado_limpio.xlsx        (hoja "Datos" + hoja "_Reporte_Auditoria")
+   - 3_reporte_auditoria.txt        (resumen ejecutivo de auditoria, español)
+   - 4_reporte_auditoria_en.txt     (mismo reporte en inglés, clientes intl.)
+   - 2_resultado_limpio_audit_report.html (certificado imprimible a PDF)
 
 Nunca pisa archivos de usuario: todo sale dentro de demo_portfolio/.
 """
@@ -31,6 +33,7 @@ DEMO = ROOT / "demo_portfolio"
 DIRTY = DEMO / "1_original_sucio.xlsx"
 CLEAN = DEMO / "2_resultado_limpio.xlsx"
 TXT = DEMO / "3_reporte_auditoria.txt"
+TXT_EN = DEMO / "4_reporte_auditoria_en.txt"
 
 
 def build_dirty_workbook() -> None:
@@ -60,7 +63,8 @@ def build_dirty_workbook() -> None:
 def main() -> int:
     # Limpieza de artefactos previos DEL PROPIO DEMO (todos dentro de demo_portfolio/).
     DEMO.mkdir(exist_ok=True)
-    for stale in (CLEAN, TXT, *DEMO.glob("*_audit_report.txt")):
+    for stale in (CLEAN, TXT, TXT_EN, *DEMO.glob("*_audit_report.txt"),
+                  *DEMO.glob("*_audit_report.html")):
         if stale.exists():
             stale.unlink()
 
@@ -116,12 +120,16 @@ def main() -> int:
     generated_tx = export_audit_report(report_es, DEMO, format="txt")
     shutil.move(generated_tx, TXT)
 
+    # Sidecar TXT en inglés (portfolio bilingüe para clientes internacionales)
+    generated_tx_en = export_audit_report(report_en, DEMO, format="txt")
+    shutil.move(generated_tx_en, TXT_EN)
+
     # Sidecar HTML en inglés (certificado tipo PDF para Standard/Premium)
     html_path = Path(export_audit_report(report_en, DEMO, format="html"))
 
-    assert CLEAN.exists() and TXT.exists() and html_path.exists()
+    assert CLEAN.exists() and TXT.exists() and html_path.exists() and TXT_EN.exists()
     print(f"[2/3] Resultado limpio: {CLEAN.name}")
-    print(f"[3/3] Reporte de auditoria: {TXT.name}  +  {html_path.name}")
+    print(f"[3/3] Reportes de auditoria: {TXT.name} + {TXT_EN.name} + {html_path.name}")
 
     # Resumen para el portfolio
     print("\n=== RESUMEN DEMO ===")

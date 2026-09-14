@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Audit Report — F:\vacio_temp\demo_portfolio\1_original_sucio.xlsx</title>
+<title>Audit Report — F:\Gigs\Excel Cleaner\demo_portfolio\1_original_sucio.xlsx</title>
 <style>
 @page { size: A4; margin: 18mm; }
 * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
@@ -47,8 +47,8 @@ ul.warning-list li { margin-bottom: 4px; font-size: 13px; }
     <div class="section">
       <h2>Files</h2>
       <div class="file-row">
-        <div><div class="lbl">Original file:</div><div class="val">F:\vacio_temp\demo_portfolio\1_original_sucio.xlsx</div></div>
-        <div><div class="lbl">Exported file:</div><div class="val">F:\vacio_temp\demo_portfolio\2_resultado_limpio.xlsx</div></div>
+        <div><div class="lbl">Original file:</div><div class="val">F:\Gigs\Excel Cleaner\demo_portfolio\1_original_sucio.xlsx</div></div>
+        <div><div class="lbl">Exported file:</div><div class="val">F:\Gigs\Excel Cleaner\demo_portfolio\2_resultado_limpio.xlsx</div></div>
       </div>
     </div>
 
@@ -70,7 +70,7 @@ ul.warning-list li { margin-bottom: 4px; font-size: 13px; }
       <h2>Actions Executed</h2>
       <table>
         <thead><tr><th>Action</th><th>Column</th><th>Description</th><th>Parameters</th><th>Source</th><th>Status</th></tr></thead>
-        <tbody><tr><td>eliminar_filas_vacias</td><td>-</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>trim_espacios</td><td>Nombre Completo</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>trim_espacios</td><td>Email</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>trim_espacios</td><td>Ciudad</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>convertir_basura_a_nulo</td><td>Estado</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>normalizar_numerico</td><td>Monto</td><td></td><td>{'locale': 'auto'}</td><td>analyzer</td><td>Approved</td></tr><tr><td>normalizar_fechas</td><td>Fecha Contrato</td><td></td><td>{'dayfirst': True}</td><td>analyzer</td><td>Approved</td></tr><tr><td>eliminar_duplicados_por_columna</td><td>Email</td><td></td><td>{'subset_columns': ['Email'], 'keep': 'first'}</td><td>analyzer</td><td>Approved</td></tr></tbody>
+        <tbody><tr><td>eliminar_filas_vacias</td><td>-</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>trim_espacios</td><td>Nombre Completo</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>trim_espacios</td><td>Email</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>trim_espacios</td><td>Ciudad</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>convertir_basura_a_nulo</td><td>Estado</td><td></td><td>{}</td><td>analyzer</td><td>Approved</td></tr><tr><td>normalizar_numerico</td><td>Monto</td><td></td><td>{&#x27;locale&#x27;: &#x27;auto&#x27;}</td><td>analyzer</td><td>Approved</td></tr><tr><td>normalizar_fechas</td><td>Fecha Contrato</td><td></td><td>{&#x27;dayfirst&#x27;: True}</td><td>analyzer</td><td>Approved</td></tr><tr><td>eliminar_duplicados_por_columna</td><td>Email</td><td></td><td>{&#x27;subset_columns&#x27;: [&#x27;Email&#x27;], &#x27;keep&#x27;: &#x27;first&#x27;}</td><td>analyzer</td><td>Approved</td></tr></tbody>
       </table>
     </div>
 
@@ -78,17 +78,17 @@ ul.warning-list li { margin-bottom: 4px; font-size: 13px; }
       <h2>Column Transformations</h2>
       <table>
         <thead><tr><th>Column</th><th>Action</th><th>Input type</th><th>Output type</th><th>Nulls before</th><th>Nulls after</th><th>Changes</th><th>Summary</th></tr></thead>
-        <tbody><tr><td>GLOBAL</td><td>eliminar_filas_vacias</td><td>df_(8, 6)</td><td>df_(7, 6)</td><td>0</td><td>6</td><td>1</td><td>Filas: 8 -> 7 (eliminadas: 1)</td></tr><tr><td>Nombre Completo</td><td>trim_espacios</td><td>str</td><td>str</td><td>0</td><td>0</td><td>3</td><td>cambios: 3</td></tr><tr><td>Email</td><td>trim_espacios</td><td>str</td><td>str</td><td>0</td><td>0</td><td>3</td><td>cambios: 3</td></tr><tr><td>Ciudad</td><td>trim_espacios</td><td>str</td><td>str</td><td>0</td><td>0</td><td>3</td><td>cambios: 3</td></tr><tr><td>Estado</td><td>convertir_basura_a_nulo</td><td>str</td><td>str</td><td>0</td><td>5</td><td>5</td><td>Basura -> nulo (patrones estándar)</td></tr><tr><td>Monto</td><td>normalizar_numerico</td><td>str</td><td>float64</td><td>0</td><td>0</td><td>7</td><td>cambios: 7</td></tr><tr><td>Fecha Contrato</td><td>normalizar_fechas</td><td>str</td><td>str</td><td>0</td><td>1</td><td>6</td><td>nulos: +1; cambios: 6</td></tr><tr><td>GLOBAL</td><td>eliminar_duplicados_por_columna</td><td>df_(8, 6)</td><td>df_(7, 6)</td><td>0</td><td>6</td><td>1</td><td>Deduplicación por criterio ['Email'] (keep='first')</td></tr></tbody>
+        <tbody><tr><td>GLOBAL</td><td>eliminar_filas_vacias</td><td>df_(8, 6)</td><td>df_(7, 6)</td><td>0</td><td>6</td><td>1</td><td>Filas: 8 -&gt; 7 (eliminadas: 1)</td></tr><tr><td>Nombre Completo</td><td>trim_espacios</td><td>str</td><td>str</td><td>0</td><td>0</td><td>3</td><td>cambios: 3</td></tr><tr><td>Email</td><td>trim_espacios</td><td>str</td><td>str</td><td>0</td><td>0</td><td>3</td><td>cambios: 3</td></tr><tr><td>Ciudad</td><td>trim_espacios</td><td>str</td><td>str</td><td>0</td><td>0</td><td>3</td><td>cambios: 3</td></tr><tr><td>Estado</td><td>convertir_basura_a_nulo</td><td>str</td><td>str</td><td>0</td><td>5</td><td>5</td><td>Basura -&gt; nulo (patrones estándar)</td></tr><tr><td>Monto</td><td>normalizar_numerico</td><td>str</td><td>float64</td><td>0</td><td>0</td><td>7</td><td>cambios: 7</td></tr><tr><td>Fecha Contrato</td><td>normalizar_fechas</td><td>str</td><td>str</td><td>0</td><td>1</td><td>6</td><td>nulos: +1; cambios: 6</td></tr><tr><td>GLOBAL</td><td>eliminar_duplicados_por_columna</td><td>df_(8, 6)</td><td>df_(7, 6)</td><td>0</td><td>6</td><td>1</td><td>Deduplicación por criterio [&#x27;Email&#x27;] (keep=&#x27;first&#x27;)</td></tr></tbody>
       </table>
     </div>
 
     <div class="section">
       <h2>Cleaning Warnings</h2>
-      <ul class="warning-list"><li>convertir_basura_a_nulo: 6 valor(es) de basura en columna 'Estado' fueron convertidos a nulo (patrones aprobados).</li><li>normalizar_fechas: 1 valor(es) en columna 'Fecha Contrato' no se pudieron interpretar como fecha y se convertirán en nulo.</li></ul>
+      <ul class="warning-list"><li>convertir_basura_a_nulo: 6 valor(es) de basura en columna &#x27;Estado&#x27; fueron convertidos a nulo (patrones aprobados).</li><li>normalizar_fechas: 1 valor(es) en columna &#x27;Fecha Contrato&#x27; no se pudieron interpretar como fecha y se convertirán en nulo.</li></ul>
     </div>
   </div>
   <div class="footer">
-    <strong>2026-09-11 03:23:15 UTC</strong> &nbsp;|&nbsp; Motor versión 1.1.0<br>
+    <strong>2026-09-14 21:34:42 UTC</strong> &nbsp;|&nbsp; Motor versión 1.1.0<br>
     This certificate is generated automatically by Excel Cleaner. The original file is preserved unchanged. All transformations were applied only after explicit human approval and passed a mathematical integrity validation.
   </div>
 </div>

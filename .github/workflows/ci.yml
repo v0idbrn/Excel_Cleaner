@@ -1,0 +1,97 @@
+# CI — Excel Cleaner
+#
+# Estrategia de tests (espeja AGENTS.md):
+#   1. unittest discover  -> suites TestCase (tests/test_*.py con unittest.TestCase).
+#   2. Script-style       -> TODO test_*.py corrido como script:
+#                            los archivos function-style (def main()) solo ejecutan
+#                            sus aserciones así, y los TestCase también pasan así.
+#   3. Compile gate       -> py_compile de todos los módulos de producción.
+#   4. Demo smoke         -> pipeline completo INPUT -> PROCESSING -> OUTPUT
+#                            (demo_scripts/generate_demo.py) con artefactos subidos.
+#
+# Sin dependencias nuevas: requirements.txt ya cubre pandas/numpy/openpyxl/requests.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python-version: ["3.14"]
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compile gate (py_compile de módulos de producción)
+        shell: bash
+        run: |
+          python -m py_compile \
+            main.py config.py models.py analyzer.py cleaner.py \
+            validators.py exporter.py ai.py batch_processor.py \
+            gui/app.py gui/dashboard.py gui/issues_panel.py
+
+      # ---- 1. Suite unittest (TestCase) ----
+      # Importante: NO usar -m unittest discover con los archivos function-style
+      # en el conteo de fallos: unittest >= 3.12 sale con código 5 cuando no
+      # recolecta tests (los function-style no tienen TestCase). Por eso los
+      # coveremos SIEMPRE también como scripts en el paso siguiente.
+      - name: Unittest suite (TestCase)
+        shell: bash
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      # ---- 2. Todos los test_*.py como scripts (estilo función, def main()) ----
+      - name: Script-style tests (todos los tests/test_*.py)
+        shell: bash
+        run: |
+          set -u
+          status=0
+          for f in tests/test_*.py; do
+            echo "::group::python $f"
+            if python "$f"; then
+              echo "PASS $f"
+            else
+              echo "::error::Script test FAILED: $f"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
+
+      # ---- 3. Demo smoke: INPUT -> PROCESSING -> OUTPUT ----
+      - name: Demo pipeline smoke (generate_demo.py)
+        shell: bash
+        run: python demo_scripts/generate_demo.py
+
+      - name: Upload demo artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-portfolio-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            demo_portfolio/2_resultado_limpio.xlsx
+            demo_portfolio/3_reporte_auditoria.txt
+            demo_portfolio/4_reporte_auditoria_en.txt
+            demo_portfolio/2_resultado_limpio_audit_report.html
+          if-no-files-found: error
+          retention-days: 7

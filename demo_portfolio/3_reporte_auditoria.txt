@@ -2,14 +2,14 @@
   REPORTE DE AUDITORIA - EXCEL CLEANER
 ======================================================================
 
-Fecha/Hora UTC: 2026-09-11T03:23:15.056347+00:00
+Fecha/Hora UTC: 2026-09-14T21:34:42.626196+00:00
 Version del Cleaner: 1.1.0
 
 ----------------------------------------------------------------------
   ARCHIVOS
 ----------------------------------------------------------------------
-Archivo Original: F:\vacio_temp\demo_portfolio\1_original_sucio.xlsx
-Archivo Exportado: F:\vacio_temp\demo_portfolio\2_resultado_limpio.xlsx
+Archivo Original: F:\Gigs\Excel Cleaner\demo_portfolio\1_original_sucio.xlsx
+Archivo Exportado: F:\Gigs\Excel Cleaner\demo_portfolio\2_resultado_limpio.xlsx
 
 ----------------------------------------------------------------------
   METRICAS GLOBALES DE LIMPIEZA

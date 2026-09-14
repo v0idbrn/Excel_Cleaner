@@ -2,14 +2,14 @@
 AUDIT REPORT - EXCEL CLEANER
 ======================================================================
 
-Timestamp UTC: 2026-09-10T03:00:37.255310+00:00
+Timestamp UTC: 2026-09-14T21:34:42.629358+00:00
 Cleaner version: 1.1.0
 
 ----------------------------------------------------------------------
 FILES
 ----------------------------------------------------------------------
-Original file: demo_portfolio\1_original_sucio.xlsx
-Exported file: demo_portfolio\2_resultado_limpio.xlsx
+Original file: F:\Gigs\Excel Cleaner\demo_portfolio\1_original_sucio.xlsx
+Exported file: F:\Gigs\Excel Cleaner\demo_portfolio\2_resultado_limpio.xlsx
 
 ----------------------------------------------------------------------
 GLOBAL CLEANING METRICS
@@ -24,14 +24,55 @@ Columns after: 6
 VALIDATION (ZERO-TRUST)
 ----------------------------------------------------------------------
 Status: VALID - Export complies with all integrity rules.
-  WARNING: Ready for B2B delivery
 
 ----------------------------------------------------------------------
 ACTIONS EXECUTED
 ----------------------------------------------------------------------
 1. [eliminar_filas_vacias] Column: GLOBAL
-   Description: Eliminar filas vacias (demo portfolio)
+   Description: 
    Parameters: {}
+   Source: analyzer
+   Approved: True
+
+2. [trim_espacios] Column: Nombre Completo
+   Description: 
+   Parameters: {}
+   Source: analyzer
+   Approved: True
+
+3. [trim_espacios] Column: Email
+   Description: 
+   Parameters: {}
+   Source: analyzer
+   Approved: True
+
+4. [trim_espacios] Column: Ciudad
+   Description: 
+   Parameters: {}
+   Source: analyzer
+   Approved: True
+
+5. [convertir_basura_a_nulo] Column: Estado
+   Description: 
+   Parameters: {}
+   Source: analyzer
+   Approved: True
+
+6. [normalizar_numerico] Column: Monto
+   Description: 
+   Parameters: {'locale': 'auto'}
+   Source: analyzer
+   Approved: True
+
+7. [normalizar_fechas] Column: Fecha Contrato
+   Description: 
+   Parameters: {'dayfirst': True}
+   Source: analyzer
+   Approved: True
+
+8. [eliminar_duplicados_por_columna] Column: Email
+   Description: 
+   Parameters: {'subset_columns': ['Email'], 'keep': 'first'}
    Source: analyzer
    Approved: True
 
@@ -42,15 +83,79 @@ Column: GLOBAL
   Action: eliminar_filas_vacias
   Input type: df_(8, 6)
   Output type: df_(7, 6)
-  Nulls before: 5
+  Nulls before: 0
   Nulls after: 6
   Values changed: 1
   Summary: Filas: 8 -> 7 (eliminadas: 1)
 
+Column: Nombre Completo
+  Action: trim_espacios
+  Input type: str
+  Output type: str
+  Nulls before: 0
+  Nulls after: 0
+  Values changed: 3
+  Summary: cambios: 3
+
+Column: Email
+  Action: trim_espacios
+  Input type: str
+  Output type: str
+  Nulls before: 0
+  Nulls after: 0
+  Values changed: 3
+  Summary: cambios: 3
+
+Column: Ciudad
+  Action: trim_espacios
+  Input type: str
+  Output type: str
+  Nulls before: 0
+  Nulls after: 0
+  Values changed: 3
+  Summary: cambios: 3
+
+Column: Estado
+  Action: convertir_basura_a_nulo
+  Input type: str
+  Output type: str
+  Nulls before: 0
+  Nulls after: 5
+  Values changed: 5
+  Summary: Basura -> nulo (patrones estándar)
+
+Column: Monto
+  Action: normalizar_numerico
+  Input type: str
+  Output type: float64
+  Nulls before: 0
+  Nulls after: 0
+  Values changed: 7
+  Summary: cambios: 7
+
+Column: Fecha Contrato
+  Action: normalizar_fechas
+  Input type: str
+  Output type: str
+  Nulls before: 0
+  Nulls after: 1
+  Values changed: 6
+  Summary: nulos: +1; cambios: 6
+
+Column: GLOBAL
+  Action: eliminar_duplicados_por_columna
+  Input type: df_(8, 6)
+  Output type: df_(7, 6)
+  Nulls before: 0
+  Nulls after: 6
+  Values changed: 1
+  Summary: Deduplicación por criterio ['Email'] (keep='first')
+
 ----------------------------------------------------------------------
 CLEANING WARNINGS
 ----------------------------------------------------------------------
-  - Basura convertida a nulo: 6 celdas
+  - convertir_basura_a_nulo: 6 valor(es) de basura en columna 'Estado' fueron convertidos a nulo (patrones aprobados).
+  - normalizar_fechas: 1 valor(es) en columna 'Fecha Contrato' no se pudieron interpretar como fecha y se convertirán en nulo.
 
 ======================================================================
 END OF AUDIT REPORT
