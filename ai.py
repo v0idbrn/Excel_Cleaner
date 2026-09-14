@@ -185,21 +185,19 @@ def generate_proposals(report: AnalysisReport) -> AIResponse:
     safe_payload = _build_safe_payload(report)
     prompt = _build_prompt(safe_payload)
 
-    # Uso de getattr para prevenir errores en Pylance si el módulo config no ha sido recargado
-    base_url = getattr(config, "OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-    model_name = getattr(config, "OLLAMA_DEFAULT_MODEL", "phi4-mini:latest")
-    req_timeout = getattr(config, "AI_REQUEST_TIMEOUT", 30)
-
-    url = f"{base_url}/api/generate"
+    # Fuente única de verdad: config.py (lectura directa en vivo; sin
+    # defaults duplicados aquí). Un override en config (tests/usuario) aplica
+    # en la próxima llamada sin recargar el módulo.
+    url = f"{config.OLLAMA_BASE_URL}/api/generate"
     data = {
-        "model": model_name,
+        "model": config.OLLAMA_DEFAULT_MODEL,
         "prompt": prompt,
         "stream": False,
         "format": "json"
     }
 
     try:
-        response = requests.post(url, json=data, timeout=req_timeout, headers={"Content-Type": "application/json"})
+        response = requests.post(url, json=data, timeout=config.AI_REQUEST_TIMEOUT, headers={"Content-Type": "application/json"})
         response.raise_for_status()
         result = response.json()
         

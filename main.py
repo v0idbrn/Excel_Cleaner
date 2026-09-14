@@ -2,8 +2,8 @@
 
 Instala un manejador de errores global ANTES de crear la app, de forma que los
 builds windowed (--noconsole / console=False) nunca fallen en silencio.
-`tk.report_callback_exception` captura excepciones en callbacks Tkinter sin el
-consola de depuración (la ventana en rojo de depuración). El manejador ademas
+`tk.report_callback_exception` captura excepciones en callbacks Tkinter sin
+la ventana roja de depuración. El manejador ademas
 escribe un registro textual (%APPDATA%\\ExcelCleaner\\crash.log) visible para
 soporte, y deja registro para ayuda posterior cuando sea posible.
 """
@@ -46,7 +46,7 @@ def _crash_log_dir() -> Path:
     if appdata:
         candidates.append(Path(appdata) / "ExcelCleaner")
 
-    # 2. menos preferible: cercano al ejecutable o al cwd (para if frustrado)
+    # 2. menos preferible: cercano al ejecutable o al cwd (entornos bloqueados)
     main_file = Path(sys.argv[0]).resolve() if sys.argv[0] else Path.cwd()
     candidates.append(main_file.parent / "logs")
     candidates.append(Path.cwd() / "logs")
@@ -84,8 +84,14 @@ def _write_crash_log(exception_type, exception_value, traceback_object):
     lines.append(f"Python: {sys.version.splitlines()[0].strip()}")
     lines.append(f"Plataforma: {sys.platform or 'desconocido'}")
     lines.append(f"Directorio ejecutable (argv[0]): {sys.argv[0]!r}")
-    lines.append(f"Tipo de proceso (console/windowed): "
-                   f"{'console' if getattr(sys, '_MEIPASS', None) else 'desconocido'}")
+    # Etiqueta honesta del entorno de ejecución (para soporte técnico):
+    #  - pyinstaller (empaquetado): build comercial (sys._MEIPASS existe)
+    #  - python (desarrollo): corrida directa con el intérprete
+    if getattr(sys, "_MEIPASS", None):
+        process_kind = "pyinstaller (empaquetado)"
+    else:
+        process_kind = "python (desarrollo)"
+    lines.append(f"Tipo de proceso: {process_kind}")
     lines.append("")
     lines.append("--- Traceback ---")
     lines.append("")
@@ -136,7 +142,7 @@ def _on_tk_crash(
                 msg,
             )
         except Exception:
-            # Si incluso Tk trabajo lanza (l loop muy dañado), al menos intentar log.
+            # Si incluso Tk ya no responde (loop dañado), dejar constancia en stderr.
             pass
     except Exception:
         # El manejador en si no debe propagar al loop principal.
@@ -167,7 +173,7 @@ def create_window() -> tk.Tk:
         try:
             root.iconbitmap(str(icon_path.resolve()))
         except tk.TclError:
-            pass  # sin envoltura fs, no mostrar dialogo de error
+            pass  # icono ausente o corrupto: no interrumpir el arranque
 
     # Instalar manejador global ANTES de any UI
     root.report_callback_exception = _on_tk_crash
