@@ -13,6 +13,7 @@ Reglas estandarizadas de este módulo:
 from __future__ import annotations
 
 import re
+from typing import Any
 
 import pandas as pd
 

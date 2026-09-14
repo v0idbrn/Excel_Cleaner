@@ -148,6 +148,10 @@ def _read_csv_renamed_headers(
     Usa la primera fila como datos (skiprows=0 + names=): la fila 1 son los
     encabezados ORIGINALES (parcialmente vacíos), que se descartan al asignar
     los nombres finales. Las filas de datos empiezan en la fila 2.
+
+    Errores: UnicodeDecodeError se propaga (el caller continúa con la siguiente
+    codificación, igual que la ruta normal). Un CSV que no se puede parsear
+    con ningún engine se convierte en AnalyzerError controlado.
     """
     read_kwargs = {
         "filepath_or_buffer": path,
@@ -161,8 +165,13 @@ def _read_csv_renamed_headers(
     }
     try:
         return pd.read_csv(**read_kwargs, engine="c")
-    except pd.errors.ParserError:
-        return pd.read_csv(**read_kwargs, engine="python")
+    except pd.errors.ParserError as exc:
+        try:
+            return pd.read_csv(**read_kwargs, engine="python")
+        except (OSError, ValueError, TypeError, pd.errors.ParserError) as e:
+            raise AnalyzerError(
+                f"No se pudo leer el CSV (encabezados normalizados). Último error: {e}"
+            ) from e
 
 
 def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
@@ -182,7 +191,13 @@ def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
 
         renamed, final_headers = _normalize_csv_headers(path, encoding, delimiter)
         if renamed:
-            return _read_csv_renamed_headers(path, encoding, delimiter, final_headers)
+            try:
+                return _read_csv_renamed_headers(path, encoding, delimiter, final_headers)
+            except UnicodeDecodeError as exc:
+                # Igual que la ruta normal: esta codificación no sirve para los DATOS
+                # (el sample de 8KB pudo decodificar bien); probar la siguiente.
+                last_error = exc
+                continue
 
         read_kwargs = {
             "filepath_or_buffer": path,

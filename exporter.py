@@ -12,6 +12,7 @@ Reglas:
 
 from __future__ import annotations
 
+import html
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,6 +35,36 @@ class ExportError(Exception):
 # Nombre fijo de la pestaña de auditoría embebida en los XLSX exportados.
 AUDIT_SHEET_NAME = "_Reporte_Auditoria"
 
+# Excel Formula Injection (CWE-1236): un valor TEXTUAL que empieza con alguno de
+# estos caracteres es interpretado como fórmula por Excel al abrir el archivo
+# (= DDE/COM, + - @ funciones, tab = pegado). Se neutraliza prefijando apóstrofe.
+_EXCEL_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t")
+
+
+def _neutralize_formula_injection(df: pd.DataFrame) -> pd.DataFrame:
+    """Copia el DataFrame prefijando con apóstrofe (') las celdas textuales peligrosas.
+
+    La convención estándar de Excel: un valor inicial con apóstrofe se muestra
+    como texto literal (el apóstrofe no aparece en la celda). Los números
+    legítimos (int/float reales o strings como "3,50", "$5", "-2.5" solo si
+    son texto empiezan con dígito/símbolo monetario...) no se alteran.
+    Trabaja sobre una copia: el DataFrame validado nunca se muta.
+    """
+    out = df.copy()
+    for col in out.columns:
+        s = out[col]
+        if pd.api.types.is_string_dtype(s):
+            mask = s.str.startswith(_EXCEL_FORMULA_PREFIXES, na=False)
+            if mask.any():
+                out[col] = s.mask(mask, "'" + s)
+        elif pd.api.types.is_object_dtype(s):
+            def _prefix_if_dangerous(x):
+                if isinstance(x, str) and x[:1] in _EXCEL_FORMULA_PREFIXES:
+                    return "'" + x
+                return x
+            out[col] = s.map(_prefix_if_dangerous)
+    return out
+
 # Idiomas soportados para los reportes de auditoría (TXT/JSON/HTML/pestaña embebida).
 SUPPORTED_LANGUAGES = ("es", "en")  # txt, json, html, pestaña embebida
 
@@ -53,6 +84,11 @@ def export_dataframe(
             f"Exportación bloqueada: El DataFrame no ha superado la validación. "
             f"Errores: {validation_result.errors}"
         )
+
+    # 1.5 Neutralización de Excel Formula Injection (CWE-1236).
+    # Se aplica SOLO a la copia que se escribe: el DataFrame validado en memoria
+    # permanece intacto y la barrera Zero-Write sigue siendo lo primero.
+    df_to_write = _neutralize_formula_injection(df)
 
     # 2. Validación de la ruta y extensión
     path = Path(output_path).resolve()
@@ -74,11 +110,11 @@ def export_dataframe(
     try:
         if path.suffix.lower() == ".csv":
             # CSV: formato plano por diseño — SIN pestañas adicionales.
-            df.to_csv(path, index=False, encoding="utf-8")
+            df_to_write.to_csv(path, index=False, encoding="utf-8")
         elif path.suffix.lower() == ".xlsx":
             # XLSX: datos + pestaña de auditoría embebida (_Reporte_Auditoria).
             with pd.ExcelWriter(path, engine="openpyxl") as writer:
-                df.to_excel(writer, index=False, sheet_name="Datos")
+                df_to_write.to_excel(writer, index=False, sheet_name="Datos")
                 if audit_report is not None:
                     _write_audit_sheet(writer, audit_report)
     except (OSError, ValueError) as e:
@@ -738,60 +774,65 @@ def _write_html_report(path: Path, report: AuditReport) -> None:
     badge_text = validation_valid_text if validation_ok else validation_invalid_text
 
     rows = [
-        f"<tr><th>{rows_before_label}</th><td>{report.rows_before}</td></tr>",
-        f"<tr><th>{rows_after_label}</th><td>{report.rows_after}</td></tr>",
-        f"<tr><th>{rows_removed_label}</th><td>{report.rows_removed}</td></tr>",
-        f"<tr><th>{columns_before_label}</th><td>{report.columns_before}</td></tr>",
-        f"<tr><th>{columns_after_label}</th><td>{report.columns_after}</td></tr>",
+        f"<tr><th>{rows_before_label}</th><td>{html.escape(str(report.rows_before))}</td></tr>",
+        f"<tr><th>{rows_after_label}</th><td>{html.escape(str(report.rows_after))}</td></tr>",
+        f"<tr><th>{rows_removed_label}</th><td>{html.escape(str(report.rows_removed))}</td></tr>",
+        f"<tr><th>{columns_before_label}</th><td>{html.escape(str(report.columns_before))}</td></tr>",
+        f"<tr><th>{columns_after_label}</th><td>{html.escape(str(report.columns_after))}</td></tr>",
     ]
+
+    # DEFENSA HTML (security-review): todo valor dinámico (rutas, nombres de
+    # columna, descripciones —que pueden venir de la IA—, parámetros y warnings)
+    # se escapa antes de interpolarse. Nada de datos crudos dentro del HTML.
+    _esc = html.escape
 
     actions_rows = []
     if report.actions_executed:
         for a in report.actions_executed:
             actions_rows.append(
                 f"<tr>"
-                f"<td>{a.action_id}</td>"
-                f"<td>{a.column or '-' if en else a.column or '-'}</td>"
-                f"<td>{a.description}</td>"
-                f"<td>{a.parameters if a.parameters else '{}'}</td>"
-                f"<td>{a.source}</td>"
+                f"<td>{_esc(a.action_id)}</td>"
+                f"<td>{_esc(a.column or '-')}</td>"
+                f"<td>{_esc(a.description)}</td>"
+                f"<td>{_esc(str(a.parameters) if a.parameters else '{}')}</td>"
+                f"<td>{_esc(a.source)}</td>"
                 f"<td>{actions_status(a)}</td>"
                 f"</tr>"
             )
     else:
-        actions_rows.append(f"<tr><td colspan=\"6\">{'-' if en else '-'}</td></tr>")
+        actions_rows.append(f"<tr><td colspan=\"6\">{'-'}</td></tr>")
 
     transforms_rows = []
     if report.transforms:
         for t in report.transforms:
             transforms_rows.append(
                 f"<tr>"
-                f"<td>{t.column}</td>"
-                f"<td>{t.action_id}</td>"
-                f"<td>{t.input_dtype}</td>"
-                f"<td>{t.output_dtype}</td>"
-                f"<td>{t.nulls_before}</td>"
-                f"<td>{t.nulls_after}</td>"
-                f"<td>{t.values_changed}</td>"
-                f"<td>{t.summary or '-'}</td>"
+                f"<td>{_esc(t.column)}</td>"
+                f"<td>{_esc(t.action_id)}</td>"
+                f"<td>{_esc(t.input_dtype)}</td>"
+                f"<td>{_esc(t.output_dtype)}</td>"
+                f"<td>{_esc(str(t.nulls_before))}</td>"
+                f"<td>{_esc(str(t.nulls_after))}</td>"
+                f"<td>{_esc(str(t.values_changed))}</td>"
+                f"<td>{_esc(t.summary or '-')}</td>"
                 f"</tr>"
             )
     else:
-        transforms_rows.append(f"<tr><td colspan=\"8\">{'-' if en else '-'}</td></tr>")
+        transforms_rows.append(f"<tr><td colspan=\"8\">{'-'}</td></tr>")
 
     warnings_html = ""
     if report.cleaning_warnings:
         for w in report.cleaning_warnings:
-            warnings_html += f"<li>{w}</li>"
+            warnings_html += f"<li>{_esc(w)}</li>"
     else:
         warnings_html = f"<li>{no_warnings_text}</li>"
 
-    html = f"""<!DOCTYPE html>
+    html_out = f"""<!DOCTYPE html>
 <html lang="{'en' if en else 'es'}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{doc_title} — {report.original_file}</title>
+<title>{doc_title} — {_esc(report.original_file)}</title>
 <style>
 @page {{ size: A4; margin: 18mm; }}
 * {{ box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }}
@@ -835,8 +876,8 @@ ul.warning-list li {{ margin-bottom: 4px; font-size: 13px; }}
     <div class="section">
       <h2>{files_section}</h2>
       <div class="file-row">
-        <div><div class="lbl">{original_file_label}:</div><div class="val">{report.original_file}</div></div>
-        <div><div class="lbl">{export_file_label}:</div><div class="val">{report.export_file}</div></div>
+        <div><div class="lbl">{original_file_label}:</div><div class="val">{_esc(report.original_file)}</div></div>
+        <div><div class="lbl">{export_file_label}:</div><div class="val">{_esc(report.export_file)}</div></div>
       </div>
     </div>
 
@@ -850,8 +891,8 @@ ul.warning-list li {{ margin-bottom: 4px; font-size: 13px; }}
     <div class="section">
       <h2>{validation_section}</h2>
       <span class="badge">{badge_text}</span>
-      {f'<ul class="warning-list" style="margin-top:10px;">' + ''.join(f'<li>{e}</li>' for e in report.validation_errors) + '</ul>' if report.validation_errors else ''}
-      {f'<ul class="warning-list" style="margin-top:10px;">' + ''.join(f'<li>{w}</li>' for w in report.validation_warnings) + '</ul>' if report.validation_warnings else ''}
+      {f'<ul class="warning-list" style="margin-top:10px;">' + ''.join(f'<li>{_esc(e)}</li>' for e in report.validation_errors) + '</ul>' if report.validation_errors else ''}
+      {f'<ul class="warning-list" style="margin-top:10px;">' + ''.join(f'<li>{_esc(w)}</li>' for w in report.validation_warnings) + '</ul>' if report.validation_warnings else ''}
     </div>
 
     <div class="section">
@@ -883,4 +924,4 @@ ul.warning-list li {{ margin-bottom: 4px; font-size: 13px; }}
 </body>
 </html>"""
 
-    path.write_text(html, encoding="utf-8")
+    path.write_text(html_out, encoding="utf-8")
